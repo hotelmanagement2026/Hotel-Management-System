@@ -1,0 +1,35 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "server": "nodemon server.js",
+    "db:check": "node scripts/check-db.js",
+    "db:users": "node scripts/check-users.js",
+    "db:list-users": "node scripts/list-users.js",
+    "db:find-user": "node scripts/find-user.js",
+    "db:promote": "node scripts/promote-user.js",
+    "db:setup": "node scripts/setup-new-database.js",
+    "migrate:status": "node scripts/migrate-status.js",
+    "migrate:rooms": "node scripts/migrateRooms.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.1.4",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.12",
+    "nodemon": "^3.1.11",
+    "razorpay": "^2.9.6"
+  }
+}
