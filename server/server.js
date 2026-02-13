@@ -1,4 +1,5 @@
 import express from 'express';
+// Restart trigger
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import 'dotenv/config';
@@ -10,6 +11,8 @@ import analyticsRouter from './routes/analyticsRoutes.js';
 import adminUserRouter from './routes/adminUserRoutes.js';
 import adminBookingRouter from './routes/adminBookingRoutes.js';
 import roomRouter from './routes/roomRoutes.js';
+import reviewRouter from './routes/reviewRoutes.js';
+import adminReviewRouter from './routes/adminReviewRoutes.js';
 import { getAllPayments, getPaymentSummary, exportPaymentsCSV } from './controllers/adminPaymentControllers.js';
 import userAuth from './middleware/userAuth.js';
 import adminAuth from './middleware/adminAuth.js';
@@ -29,6 +32,25 @@ app.use(cors({
     credentials: true
 }));
 
+const LOG_FILE = 'c:\\Users\\soumi\\OneDrive\\Desktop\\lumière-luxury-hotels\\server\\server_debug.log';
+import fs from 'fs';
+
+// Log startup details
+try {
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Server starting PID: ${process.pid}\n`);
+} catch (e) {
+    console.error('Startup logging failed:', e);
+}
+
+app.use((req, res, next) => {
+    try {
+        fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] REQUEST: ${req.method} ${req.url}\n`);
+    } catch (e) {
+        console.error('Request logging failed:', e);
+    }
+    next();
+});
+
 app.get("/", (req, res) => res.send("Server is up and running!"));
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
@@ -37,11 +59,40 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/rooms', roomRouter);
 app.use('/api/admin', adminUserRouter);
 app.use('/api/admin', adminBookingRouter);
+app.use('/api/reviews', reviewRouter);
+app.use('/api/admin/reviews', adminReviewRouter);
 
 // Admin payment routes
 app.get('/api/admin/payments', userAuth, adminAuth, getAllPayments);
 app.get('/api/admin/payments/summary', userAuth, adminAuth, getPaymentSummary);
 app.get('/api/admin/payments/export', userAuth, adminAuth, exportPaymentsCSV);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    try {
+        fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ERROR: ${err.message}\nStack: ${err.stack}\n`);
+    } catch (e) { }
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message || 'Internal Server Error' });
+});
+
+// Handle Uncaught Exceptions
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION! Shutting down...', err);
+    try {
+        fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] UNCAUGHT EXCEPTION: ${err.message}\nStack: ${err.stack}\n`);
+    } catch (e) { }
+    process.exit(1);
+});
+
+// Handle Unhandled Rejections
+process.on('unhandledRejection', (err) => {
+    console.error('UNHANDLED REJECTION! Shutting down...', err);
+    try {
+        fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] UNHANDLED REJECTION: ${err.message}\nStack: ${err.stack}\n`);
+    } catch (e) { }
+    process.exit(1);
+});
 
 const startServer = async () => {
     try {
@@ -49,6 +100,9 @@ const startServer = async () => {
         initScheduler();
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
+            try {
+                fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Server listening on port ${PORT}\n`);
+            } catch (e) { }
         });
     } catch (err) {
         console.error('Failed to start server:', err.message);

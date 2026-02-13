@@ -79,6 +79,11 @@ export const userAPI = {
         const response = await api.get('/user/data');
         return response.data;
     },
+
+    getUserBookings: async () => {
+        const response = await api.get('/user/bookings');
+        return response.data;
+    },
 };
 
 // Payment API calls

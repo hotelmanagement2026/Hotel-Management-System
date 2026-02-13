@@ -45,6 +45,7 @@ export const createOrder = async (req, res) => {
                     orderId: order.id,
                     status: 'created',
                     receipt: order.receipt,
+                    userId: req.userId // Save user ID immediately
                 });
             } catch (dbError) {
                 console.log('Transaction save failed:', dbError.message);
@@ -111,6 +112,9 @@ export const verifyPayment = async (req, res) => {
 
     if (req.userId) {
         update.userId = req.userId;
+        console.log(`Associating booking ${bookingId} with user ${req.userId}`);
+    } else {
+        console.warn(`No userId found in request for booking ${bookingId}`);
     }
 
     let userEmail = '';

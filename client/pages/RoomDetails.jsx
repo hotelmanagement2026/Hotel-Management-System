@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaCheck } from 'react-icons/fa';
+import { FaCheck, FaStar } from 'react-icons/fa';
 import api from '../utils/api';
 import Button from '../components/ui/Button';
 import { useBooking } from '../context/BookingContext';
+import ReviewForm from '../components/ReviewForm';
+import { useAuth } from '../context/AuthContext';
 
 const RoomDetails = () => {
     const { id } = useParams();
@@ -12,12 +14,21 @@ const RoomDetails = () => {
     const [room, setRoom] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeImage, setActiveImage] = useState('');
+    const [reviews, setReviews] = useState([]);
+    const [canReview, setCanReview] = useState(false);
+    const [hasReviewed, setHasReviewed] = useState(false);
+    const [reviewMessage, setReviewMessage] = useState('');
     const { setBookingDraft } = useBooking();
+    const { isAuthenticated } = useAuth();
 
     useEffect(() => {
         window.scrollTo(0, 0);
         fetchRoom();
-    }, [id]);
+        fetchReviews();
+        if (isAuthenticated) {
+            checkEligibility();
+        }
+    }, [id, isAuthenticated]);
 
     const fetchRoom = async () => {
         try {
@@ -32,6 +43,31 @@ const RoomDetails = () => {
             console.error('Failed to fetch room:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchReviews = async () => {
+        try {
+            const { data } = await api.get(`/reviews/${id}`);
+            if (data.success) {
+                setReviews(data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch reviews:', error);
+        }
+    };
+
+    const checkEligibility = async () => {
+        try {
+            const { data } = await api.get(`/reviews/eligibility/${id}`);
+            if (data.success) {
+                setCanReview(data.canReview || false);
+                setHasReviewed(data.hasReviewed || false);
+                setReviewMessage(data.message || '');
+            }
+        } catch (error) {
+            console.error('Failed to check eligibility:', error);
+            setCanReview(false);
         }
     };
 
@@ -86,8 +122,8 @@ const RoomDetails = () => {
                                     alt={`View ${idx + 1}`}
                                     onClick={() => setActiveImage(img)}
                                     className={`w-full h-32 object-cover cursor-pointer transition-all duration-300 rounded-sm ${activeImage === img
-                                            ? 'ring-2 ring-gold-400 opacity-100'
-                                            : 'opacity-60 hover:opacity-100'
+                                        ? 'ring-2 ring-gold-400 opacity-100'
+                                        : 'opacity-60 hover:opacity-100'
                                         }`}
                                 />
                             ))
@@ -168,6 +204,75 @@ const RoomDetails = () => {
                                 No credit card charged until check-in.
                             </p>
                         </motion.div>
+                    </div>
+                </div>
+
+                {/* Reviews Section */}
+                <div className="container mx-auto px-6 py-12">
+                    {/* Review Form - Only for eligible users (checked-out bookings) */}
+                    {isAuthenticated && canReview && (
+                        <div className="mb-12">
+                            <ReviewForm roomId={id} onReviewSubmitted={() => {
+                                fetchReviews();
+                                checkEligibility();
+                            }} />
+                        </div>
+                    )}
+
+                    {/* Messages for different states */}
+                    {isAuthenticated && !canReview && hasReviewed && (
+                        <div className="mb-12 bg-dark-800 border border-gold-400/30 p-6 rounded-lg">
+                            <p className="text-stone-300 text-center">
+                                ✓ You have already reviewed this room. Your review is {reviewMessage.includes('pending') ? 'pending approval' : 'submitted'}.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Display Reviews */}
+                    <div className="mt-12">
+                        <h3 className="text-3xl font-serif text-stone-100 mb-8">Guest Reviews</h3>
+
+                        {reviews.length === 0 ? (
+                            <div className="bg-dark-800 border border-stone-800 p-8 text-center">
+                                <p className="text-stone-400">No reviews yet. Be the first to review this room!</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {reviews.map((review) => (
+                                    <motion.div
+                                        key={review._id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="bg-dark-800 border border-stone-800 p-6"
+                                    >
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h4 className="text-stone-100 font-semibold text-lg">
+                                                    {review.user?.name || 'Guest'}
+                                                </h4>
+                                                <div className="flex gap-1 mt-2">
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <FaStar
+                                                            key={star}
+                                                            className={star <= review.rating ? 'text-yellow-400' : 'text-gray-600'}
+                                                            size={16}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <span className="text-stone-500 text-sm">
+                                                {new Date(review.createdAt).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}
+                                            </span>
+                                        </div>
+                                        <p className="text-stone-400 leading-relaxed">{review.comment}</p>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

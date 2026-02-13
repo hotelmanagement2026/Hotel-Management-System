@@ -1,13 +1,67 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useBooking } from '../context/BookingContext';
 import { Navigate, Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
+import ReviewModal from '../components/ReviewModal';
+import api from '../utils/api';
 
 const Dashboard = () => {
     const { user, logout, loading } = useAuth();
     const { bookings, cancelBooking } = useBooking();
+    const [reviewModal, setReviewModal] = useState({ isOpen: false, booking: null });
+    const [reviewStatuses, setReviewStatuses] = useState({});
+
+    // Check review status for all checked-out bookings
+    useEffect(() => {
+        const checkReviewStatuses = async () => {
+            const checkedOutBookings = bookings.filter(b => b.bookingStatus === 'checked_out');
+
+            for (const booking of checkedOutBookings) {
+                try {
+                    const { data } = await api.get(`/reviews/eligibility/${booking.roomId}`);
+
+                    setReviewStatuses(prev => ({
+                        ...prev,
+                        [booking.bookingId]: {
+                            canReview: data.canReview || false,
+                            hasReviewed: data.hasReviewed || false,
+                            reviewStatus: data.reviewStatus || null
+                        }
+                    }));
+                } catch (error) {
+                    console.error('Failed to check review status:', error);
+                }
+            }
+        };
+
+        if (bookings.length > 0) {
+            checkReviewStatuses();
+        }
+    }, [bookings]);
+
+    const openReviewModal = (booking) => {
+        setReviewModal({ isOpen: true, booking });
+    };
+
+    const closeReviewModal = () => {
+        setReviewModal({ isOpen: false, booking: null });
+    };
+
+    const handleReviewSubmitted = () => {
+        // Refresh review statuses
+        if (reviewModal.booking) {
+            setReviewStatuses(prev => ({
+                ...prev,
+                [reviewModal.booking.bookingId]: {
+                    canReview: false,
+                    hasReviewed: true,
+                    reviewStatus: 'pending'
+                }
+            }));
+        }
+    };
 
     if (loading) {
         return (
@@ -60,44 +114,85 @@ const Dashboard = () => {
                     </div>
                 ) : (
                     <div className="grid gap-6">
-                        {bookings.map((booking) => (
-                            <motion.div
-                                key={booking.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="bg-dark-800 border border-stone-800 p-6 flex flex-col md:flex-row justify-between items-center gap-6"
-                            >
-                                <div className="flex-grow">
-                                    <div className="flex items-center gap-4 mb-2">
-                                        <h3 className="text-xl font-serif text-gold-400">{booking.roomName}</h3>
-                                        <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider border ${booking.status === 'confirmed' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'
-                                            }`}>
-                                            {booking.status}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-stone-400">
-                                        <p>Check-in: <span className="text-stone-200">{booking.checkIn}</span></p>
-                                        <p>Check-out: <span className="text-stone-200">{booking.checkOut}</span></p>
-                                        <p>Guests: <span className="text-stone-200">{booking.guests}</span></p>
-                                        <p>Total: <span className="text-gold-400 font-bold">${booking.totalPrice}</span></p>
-                                    </div>
-                                    <p className="text-xs text-stone-600 mt-2">Booking ID: {booking.id}</p>
-                                </div>
+                        {bookings.map((booking) => {
+                            const reviewStatus = reviewStatuses[booking.bookingId];
+                            const isCheckedOut = booking.bookingStatus === 'checked_out';
 
-                                {booking.status !== 'cancelled' && (
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() => cancelBooking(booking.id)}
-                                        className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
-                                    >
-                                        Cancel Booking
-                                    </Button>
-                                )}
-                            </motion.div>
-                        ))}
+                            return (
+                                <motion.div
+                                    key={booking._id || booking.bookingId}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-dark-800 border border-stone-800 p-6 flex flex-col md:flex-row justify-between items-center gap-6"
+                                >
+                                    <div className="flex-grow">
+                                        <div className="flex items-center gap-4 mb-2">
+                                            <h3 className="text-xl font-serif text-gold-400">{booking.roomName}</h3>
+                                            <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider border ${booking.bookingStatus === 'confirmed' || booking.status === 'success'
+                                                ? 'border-green-500 text-green-500'
+                                                : booking.bookingStatus === 'checked_out'
+                                                    ? 'border-blue-500 text-blue-500'
+                                                    : 'border-red-500 text-red-500'
+                                                }`}>
+                                                {booking.bookingStatus || booking.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-stone-400">
+                                            <p>Check-in: <span className="text-stone-200">{booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A'}</span></p>
+                                            <p>Check-out: <span className="text-stone-200">{booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A'}</span></p>
+                                            <p>Total: <span className="text-gold-400 font-bold">₹{booking.amount || 0}</span></p>
+                                        </div>
+                                        <p className="text-xs text-stone-600 mt-2">Booking ID: {booking.bookingId}</p>
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        {/* Review Button for Checked-out Bookings */}
+                                        {isCheckedOut && (
+                                            <>
+                                                {reviewStatus?.hasReviewed ? (
+                                                    <div className="px-4 py-2 border border-stone-700 text-stone-400 text-sm">
+                                                        {reviewStatus.reviewStatus === 'pending' ? '⏳ Review Pending' : '✓ Reviewed'}
+                                                    </div>
+                                                ) : (
+                                                    <Button
+                                                        onClick={() => openReviewModal(booking)}
+                                                        className="px-4 py-2 text-sm bg-gold-400/10 text-gold-400 border border-gold-400/50 hover:bg-gold-400 hover:text-dark-900"
+                                                    >
+                                                        ⭐ Write Review
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {/* Cancel Button for Active Bookings */}
+                                        {booking.bookingStatus !== 'checked_out' && booking.status !== 'cancelled' && (
+                                            <Button
+                                                variant="ghost"
+                                                onClick={() => cancelBooking(booking.bookingId)}
+                                                className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                                            >
+                                                Cancel Booking
+                                            </Button>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
+
+            {/* Review Modal */}
+            {reviewModal.isOpen && reviewModal.booking && (
+                <ReviewModal
+                    isOpen={reviewModal.isOpen}
+                    onClose={closeReviewModal}
+                    roomId={reviewModal.booking.roomId}
+                    roomName={reviewModal.booking.roomName}
+                    bookingId={reviewModal.booking.bookingId}
+                    onReviewSubmitted={handleReviewSubmitted}
+                />
+            )}
         </div>
     );
 };

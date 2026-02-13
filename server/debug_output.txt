@@ -1,0 +1,16 @@
+Connected to MongoDB
+User found: 698e2a0338d2ababa24e75e8 (abcd@gmail.com)
+
+Recent 10 transactions:
+[2026-02-12T19:53:55.149Z] BookingID: BLK-1770926035134, UserID: 698e2fd376f728bbbd0a639b, Status: paid, Match: false
+[2026-02-12T19:52:36.829Z] BookingID: BLK-1770925956817, UserID: 698e2f843ecb5eb5ceac3464, Status: paid, Match: false
+[2026-02-12T19:52:18.733Z] BookingID: BLK-1770925938721, UserID: 698e2f72940c5cad93db0bef, Status: paid, Match: false
+[2026-02-12T19:51:07.113Z] BookingID: BLK-1770925867098, UserID: 698e2f2baf1eaba61e9e3903, Status: paid, Match: false
+[2026-02-12T19:50:19.911Z] BookingID: BLK-1770925819901, UserID: 698e2efbabb7f0fa5458830a, Status: paid, Match: false
+[2026-02-12T19:49:24.468Z] BookingID: BLK-1770925764448, UserID: 698e2ec47501a955354ab11d, Status: paid, Match: false
+[2026-02-12T19:48:22.941Z] BookingID: BLK-1770925702926, UserID: 698e2e860d81b413f7409053, Status: paid, Match: false
+[2026-02-12T19:47:22.083Z] BookingID: booking_1770925641516, UserID: 698e2a0338d2ababa24e75e8, Status: verified, Match: true
+[2026-02-12T18:48:20.560Z] BookingID: booking_1770922100228, UserID: 698e108e968b02f45c8bbe68, Status: verified, Match: false
+[2026-02-12T18:39:43.416Z] BookingID: booking_1770921583189, UserID: NULL, Status: paid, Match: undefined
+
+Total transactions found strictly for user 698e2a0338d2ababa24e75e8: 1

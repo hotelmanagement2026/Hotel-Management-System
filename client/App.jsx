@@ -29,6 +29,7 @@ import RoomManagement from './pages/admin/RoomManagement';
 import BookingManagement from './pages/admin/BookingManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
 import Reports from './pages/admin/Reports';
+import AdminReviews from './pages/admin/AdminReviews';
 
 // Layout wrapper for regular pages
 const MainLayout = ({ children }) => (
@@ -55,6 +56,7 @@ const App = () => {
                             <Route path="bookings" element={<BookingManagement />} />
                             <Route path="payments" element={<PaymentManagement />} />
                             <Route path="reports" element={<Reports />} />
+                            <Route path="reviews" element={<AdminReviews />} />
                         </Route>
 
                         {/* Regular routes with Navbar/Footer */}
