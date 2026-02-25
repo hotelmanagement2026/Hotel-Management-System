@@ -1,5 +1,6 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 // Contexts
 import { AuthProvider } from './context/AuthContext';
@@ -30,6 +31,12 @@ import BookingManagement from './pages/admin/BookingManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
 import Reports from './pages/admin/Reports';
 import AdminReviews from './pages/admin/AdminReviews';
+import PromoCodeManagement from './pages/admin/PromoCodeManagement';
+import SeasonalDiscountManagement from './pages/admin/SeasonalDiscountManagement';
+
+// Admin Components
+import InvoiceManagement from './components/admin/InvoiceManagement';
+import RefundManagement from './components/admin/RefundManagement';
 
 // Layout wrapper for regular pages
 const MainLayout = ({ children }) => (
@@ -47,6 +54,13 @@ const App = () => {
         <AuthProvider>
             <BookingProvider>
                 <Router>
+                    <Toaster position="top-right" toastOptions={{
+                        style: {
+                            background: '#1c1917',
+                            color: '#e7e5e4',
+                            border: '1px solid #44403c',
+                        },
+                    }} />
                     <Routes>
                         {/* Admin routes without Navbar/Footer */}
                         <Route path="/admin" element={<AdminLayout />}>
@@ -57,6 +71,10 @@ const App = () => {
                             <Route path="payments" element={<PaymentManagement />} />
                             <Route path="reports" element={<Reports />} />
                             <Route path="reviews" element={<AdminReviews />} />
+                            <Route path="invoices" element={<InvoiceManagement />} />
+                            <Route path="promocodes" element={<PromoCodeManagement />} />
+                            <Route path="discounts" element={<SeasonalDiscountManagement />} />
+                            <Route path="refunds" element={<RefundManagement />} />
                         </Route>
 
                         {/* Regular routes with Navbar/Footer */}

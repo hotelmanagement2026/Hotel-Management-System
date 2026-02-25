@@ -23,6 +23,9 @@ const transactionSchema = new mongoose.Schema(
         refundStatus: { type: String },
         checkIn: { type: Date },
         checkOut: { type: Date },
+        promoCode: { type: String },
+        discountAmount: { type: Number, default: 0 },
+        seasonalDiscount: { type: Object }
     },
     { timestamps: true }
 );

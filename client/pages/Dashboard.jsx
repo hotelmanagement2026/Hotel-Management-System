@@ -6,12 +6,15 @@ import { Navigate, Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import ReviewModal from '../components/ReviewModal';
 import api from '../utils/api';
+import MyInvoices from '../components/user/MyInvoices';
+import MyRefunds from '../components/user/MyRefunds';
 
 const Dashboard = () => {
     const { user, logout, loading } = useAuth();
     const { bookings, cancelBooking } = useBooking();
     const [reviewModal, setReviewModal] = useState({ isOpen: false, booking: null });
     const [reviewStatuses, setReviewStatuses] = useState({});
+    const [activeTab, setActiveTab] = useState('bookings');
 
     // Check review status for all checked-out bookings
     useEffect(() => {
@@ -75,6 +78,12 @@ const Dashboard = () => {
         return <Navigate to="/login" />;
     }
 
+    const tabs = [
+        { id: 'bookings', label: 'My Bookings' },
+        { id: 'invoices', label: 'Invoices' },
+        { id: 'refunds', label: 'Refund Requests' },
+    ];
+
     return (
         <div className="pt-24 min-h-screen bg-dark-900">
             <div className="container mx-auto px-6 py-12">
@@ -105,81 +114,120 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                <h2 className="text-2xl font-serif text-stone-100 mb-8">My Bookings</h2>
-
-                {bookings.length === 0 ? (
-                    <div className="text-center py-20 bg-dark-800 border border-stone-800">
-                        <p className="text-stone-500 mb-6">You have no active bookings.</p>
-                        <Button onClick={() => window.location.hash = '#/rooms'}>Explore Rooms</Button>
-                    </div>
-                ) : (
-                    <div className="grid gap-6">
-                        {bookings.map((booking) => {
-                            const reviewStatus = reviewStatuses[booking.bookingId];
-                            const isCheckedOut = booking.bookingStatus === 'checked_out';
-
-                            return (
+                {/* Tabs */}
+                <div className="mb-8 flex space-x-4 border-b border-stone-800">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`pb-4 px-2 text-lg font-serif transition-colors relative ${activeTab === tab.id
+                                    ? 'text-gold-400'
+                                    : 'text-stone-500 hover:text-stone-300'
+                                }`}
+                        >
+                            {tab.label}
+                            {activeTab === tab.id && (
                                 <motion.div
-                                    key={booking._id || booking.bookingId}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="bg-dark-800 border border-stone-800 p-6 flex flex-col md:flex-row justify-between items-center gap-6"
-                                >
-                                    <div className="flex-grow">
-                                        <div className="flex items-center gap-4 mb-2">
-                                            <h3 className="text-xl font-serif text-gold-400">{booking.roomName}</h3>
-                                            <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider border ${booking.bookingStatus === 'confirmed' || booking.status === 'success'
-                                                ? 'border-green-500 text-green-500'
-                                                : booking.bookingStatus === 'checked_out'
-                                                    ? 'border-blue-500 text-blue-500'
-                                                    : 'border-red-500 text-red-500'
-                                                }`}>
-                                                {booking.bookingStatus || booking.status}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-stone-400">
-                                            <p>Check-in: <span className="text-stone-200">{booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A'}</span></p>
-                                            <p>Check-out: <span className="text-stone-200">{booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A'}</span></p>
-                                            <p>Total: <span className="text-gold-400 font-bold">₹{booking.amount || 0}</span></p>
-                                        </div>
-                                        <p className="text-xs text-stone-600 mt-2">Booking ID: {booking.bookingId}</p>
-                                    </div>
+                                    layoutId="activeTab"
+                                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold-400"
+                                />
+                            )}
+                        </button>
+                    ))}
+                </div>
 
-                                    <div className="flex gap-3">
-                                        {/* Review Button for Checked-out Bookings */}
-                                        {isCheckedOut && (
-                                            <>
-                                                {reviewStatus?.hasReviewed ? (
-                                                    <div className="px-4 py-2 border border-stone-700 text-stone-400 text-sm">
-                                                        {reviewStatus.reviewStatus === 'pending' ? '⏳ Review Pending' : '✓ Reviewed'}
-                                                    </div>
-                                                ) : (
-                                                    <Button
-                                                        onClick={() => openReviewModal(booking)}
-                                                        className="px-4 py-2 text-sm bg-gold-400/10 text-gold-400 border border-gold-400/50 hover:bg-gold-400 hover:text-dark-900"
-                                                    >
-                                                        ⭐ Write Review
-                                                    </Button>
-                                                )}
-                                            </>
-                                        )}
+                {/* Tab Content */}
+                <div className="min-h-[400px]">
+                    {activeTab === 'bookings' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            {bookings.length === 0 ? (
+                                <div className="text-center py-20 bg-dark-800 border border-stone-800">
+                                    <p className="text-stone-500 mb-6">You have no active bookings.</p>
+                                    <Button onClick={() => window.location.hash = '#/rooms'}>Explore Rooms</Button>
+                                </div>
+                            ) : (
+                                <div className="grid gap-6">
+                                    {bookings.map((booking) => {
+                                        const reviewStatus = reviewStatuses[booking.bookingId];
+                                        const isCheckedOut = booking.bookingStatus === 'checked_out';
 
-                                        {/* Cancel Button for Active Bookings */}
-                                        {booking.bookingStatus !== 'checked_out' && booking.status !== 'cancelled' && (
-                                            <Button
-                                                variant="ghost"
-                                                onClick={() => cancelBooking(booking.bookingId)}
-                                                className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                                        return (
+                                            <motion.div
+                                                key={booking._id || booking.bookingId}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="bg-dark-800 border border-stone-800 p-6 flex flex-col md:flex-row justify-between items-center gap-6"
                                             >
-                                                Cancel Booking
-                                            </Button>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>
-                )}
+                                                <div className="flex-grow">
+                                                    <div className="flex items-center gap-4 mb-2">
+                                                        <h3 className="text-xl font-serif text-gold-400">{booking.roomName}</h3>
+                                                        <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider border ${booking.bookingStatus === 'confirmed' || booking.status === 'success'
+                                                            ? 'border-green-500 text-green-500'
+                                                            : booking.bookingStatus === 'checked_out'
+                                                                ? 'border-blue-500 text-blue-500'
+                                                                : 'border-red-500 text-red-500'
+                                                            }`}>
+                                                            {booking.bookingStatus || booking.status}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-stone-400">
+                                                        <p>Check-in: <span className="text-stone-200">{booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A'}</span></p>
+                                                        <p>Check-out: <span className="text-stone-200">{booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A'}</span></p>
+                                                        <p>Total: <span className="text-gold-400 font-bold">₹{booking.amount || 0}</span></p>
+                                                    </div>
+                                                    <p className="text-xs text-stone-600 mt-2">Booking ID: {booking.bookingId}</p>
+                                                </div>
+
+                                                <div className="flex gap-3">
+                                                    {/* Review Button for Checked-out Bookings */}
+                                                    {isCheckedOut && (
+                                                        <>
+                                                            {reviewStatus?.hasReviewed ? (
+                                                                <div className="px-4 py-2 border border-stone-700 text-stone-400 text-sm">
+                                                                    {reviewStatus.reviewStatus === 'pending' ? '⏳ Review Pending' : '✓ Reviewed'}
+                                                                </div>
+                                                            ) : (
+                                                                <Button
+                                                                    onClick={() => openReviewModal(booking)}
+                                                                    className="px-4 py-2 text-sm bg-gold-400/10 text-gold-400 border border-gold-400/50 hover:bg-gold-400 hover:text-dark-900"
+                                                                >
+                                                                    ⭐ Write Review
+                                                                </Button>
+                                                            )}
+                                                        </>
+                                                    )}
+
+                                                    {/* Cancel Button for Active Bookings */}
+                                                    {booking.bookingStatus !== 'checked_out' && booking.status !== 'cancelled' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            onClick={() => cancelBooking(booking.bookingId)}
+                                                            className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                                                        >
+                                                            Cancel Booking
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'invoices' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <MyInvoices />
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'refunds' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <MyRefunds />
+                        </motion.div>
+                    )}
+                </div>
             </div>
 
             {/* Review Modal */}

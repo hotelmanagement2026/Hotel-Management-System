@@ -13,6 +13,10 @@ import adminBookingRouter from './routes/adminBookingRoutes.js';
 import roomRouter from './routes/roomRoutes.js';
 import reviewRouter from './routes/reviewRoutes.js';
 import adminReviewRouter from './routes/adminReviewRoutes.js';
+import promoCodeRouter from './routes/promoCodeRoutes.js';
+import invoiceRouter from './routes/invoiceRoutes.js';
+import seasonalDiscountRouter from './routes/seasonalDiscountRoutes.js';
+import refundRouter from './routes/refundRoutes.js';
 import { getAllPayments, getPaymentSummary, exportPaymentsCSV } from './controllers/adminPaymentControllers.js';
 import userAuth from './middleware/userAuth.js';
 import adminAuth from './middleware/adminAuth.js';
@@ -61,6 +65,10 @@ app.use('/api/admin', adminUserRouter);
 app.use('/api/admin', adminBookingRouter);
 app.use('/api/reviews', reviewRouter);
 app.use('/api/admin/reviews', adminReviewRouter);
+app.use('/api/promocodes', promoCodeRouter);
+app.use('/api/invoices', invoiceRouter);
+app.use('/api/seasonal-discounts', seasonalDiscountRouter);
+app.use('/api/refunds', refundRouter);
 
 // Admin payment routes
 app.get('/api/admin/payments', userAuth, adminAuth, getAllPayments);
