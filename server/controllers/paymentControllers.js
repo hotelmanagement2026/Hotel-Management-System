@@ -65,7 +65,7 @@ export const createOrder = async (req, res) => {
 };
 
 export const verifyPayment = async (req, res) => {
-    const { order_id, payment_id, signature, amount, bookingId, roomId, roomName, checkIn, checkOut } = req.body;
+    const { order_id, payment_id, signature, amount, bookingId, roomId, roomName, checkIn, checkOut, promoCode, discountAmount, seasonalDiscount } = req.body;
     const secret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!order_id || !payment_id || !signature) {
@@ -88,6 +88,9 @@ export const verifyPayment = async (req, res) => {
         paymentId: payment_id,
         signature,
         status: 'verified',
+        promoCode,
+        discountAmount,
+        seasonalDiscount
     };
 
     if (amount && !Number.isNaN(Number(amount))) {

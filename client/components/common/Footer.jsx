@@ -37,10 +37,10 @@ const Footer = () => {
                     <div>
                         <h3 className="text-lg font-serif text-stone-100 mb-6">Contact</h3>
                         <ul className="space-y-4 text-sm text-stone-400">
-                            <li>123 Luxury Avenue</li>
-                            <li>Paris, France 75001</li>
-                            <li>+33 1 23 45 67 89</li>
-                            <li>concierge@lumiere.com</li>
+                            <li>Haldia</li>
+                            <li>West Bengal, India</li>
+                            <li>+91 9732945407</li>
+                            <li>hotelmanagement2026@gmail.com</li>
                         </ul>
                     </div>
 

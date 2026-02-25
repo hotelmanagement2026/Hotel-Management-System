@@ -5,10 +5,11 @@ import Room from '../models/Room.js';
 // Get all pending reviews (admin only)
 export const getPendingReviews = async (req, res) => {
     try {
-        const reviews = await Review.find({ status: 'pending' })
-            .populate('user', 'name email')
-            .populate('room', 'name')
-            .sort({ createdAt: -1 });
+        const reviews =
+            await Review.find({ status: 'pending' })
+                .populate('user', 'name email')
+                .populate('room', 'name')
+                .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,

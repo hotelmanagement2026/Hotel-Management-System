@@ -3,8 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useBooking } from '../context/BookingContext';
-import { paymentAPI } from '../utils/api';
+import api, { paymentAPI } from '../utils/api';
 import Button from '../components/ui/Button';
+import PromoCodeInput from '../components/booking/PromoCodeInput';
 import { FaCalendarAlt, FaUser, FaCheck } from 'react-icons/fa';
 
 const loadRazorpayScript = () => {
@@ -27,18 +28,51 @@ const Booking = () => {
     const { currentBookingDraft, addBooking, setBookingDraft } = useBooking();
     const navigate = useNavigate();
 
-    const [checkIn, setCheckIn] = useState('');
-    const [checkOut, setCheckOut] = useState('');
+    const [checkIn, setCheckIn] = useState(new Date().toISOString().split('T')[0]);
+    const [checkOut, setCheckOut] = useState(() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow.toISOString().split('T')[0];
+    });
     const [guests, setGuests] = useState(2);
     const [isSuccess, setIsSuccess] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymentError, setPaymentError] = useState('');
+    const [appliedPromo, setAppliedPromo] = useState(null);
+    const [seasonalDiscount, setSeasonalDiscount] = useState(null);
 
     useEffect(() => {
         if (!currentBookingDraft?.roomId) {
             navigate('/rooms');
         }
     }, [currentBookingDraft, navigate]);
+
+    useEffect(() => {
+        const fetchSeasonalDiscount = async () => {
+            // Reset first
+            setSeasonalDiscount(null);
+
+            if (checkIn && checkOut && currentBookingDraft?.roomName) {
+                try {
+                    const { data } = await api.get('/seasonal-discounts/active', {
+                        params: {
+                            checkInDate: checkIn,
+                            checkOutDate: checkOut,
+                            roomType: currentBookingDraft.roomName
+                        }
+                    });
+
+                    if (data.success && data.data) {
+                        setSeasonalDiscount(data.data);
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch seasonal discount:", error);
+                }
+            }
+        };
+
+        fetchSeasonalDiscount();
+    }, [checkIn, checkOut, currentBookingDraft]);
 
     const calculateTotal = () => {
         if (!checkIn || !checkOut || !currentBookingDraft?.totalPrice) return 0;
@@ -48,6 +82,29 @@ const Booking = () => {
         return nights > 0 ? nights * currentBookingDraft.totalPrice : 0;
     };
 
+    const getSeasonalDiscountAmount = () => {
+        if (!seasonalDiscount) return 0;
+        const total = calculateTotal();
+        return Math.round((total * seasonalDiscount.discountPercentage) / 100);
+    };
+
+    const getFinalAmount = () => {
+        const total = calculateTotal();
+        const seasonalAmount = getSeasonalDiscountAmount();
+        let final = total - seasonalAmount;
+
+        if (appliedPromo) {
+            final = Math.max(0, final - appliedPromo.discountAmount);
+        }
+        return Math.max(0, final);
+    };
+
+    const handlePromoApplied = (promoData) => {
+        setAppliedPromo(promoData);
+    };
+
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!user) {
@@ -55,8 +112,16 @@ const Booking = () => {
             return;
         }
 
-        const totalAmount = calculateTotal();
-        if (totalAmount <= 0) {
+        const finalAmount = getFinalAmount();
+        if (finalAmount <= 0) {
+            // Allow free booking if discount covers everything? 
+            // Usually still create order for record.
+            // For now assuming > 0 check for razorpay.
+            // setPaymentError('Please select valid check-in and check-out dates.');
+            // return;
+        }
+
+        if (calculateTotal() <= 0) {
             setPaymentError('Please select valid check-in and check-out dates.');
             return;
         }
@@ -64,13 +129,41 @@ const Booking = () => {
         const razorpayKey = (import.meta.env.VITE_RAZORPAY_KEY_ID || '').trim();
         const isPlaceholderKey = razorpayKey === 'your_razorpay_key_id';
         const isLikelyValidKey = /^rzp_(test|live)_/i.test(razorpayKey);
-        if (!razorpayKey || isPlaceholderKey || !isLikelyValidKey) {
+
+        // Skip razorpay check if amount is 0 (100% discount) - handling logic might differ but for now assume minimal payment
+        if (finalAmount > 0 && (!razorpayKey || isPlaceholderKey || !isLikelyValidKey)) {
             setPaymentError('Razorpay key is invalid. Set VITE_RAZORPAY_KEY_ID to your real rzp_test_... key and restart the client.');
             return;
         }
 
         setPaymentError('');
         setIsProcessing(true);
+
+        const bookingId = `booking_${Date.now()}`;
+
+        // If amount is 0, skip razorpay
+        if (finalAmount === 0) {
+            const newBooking = {
+                id: bookingId,
+                orderId: 'FREE_BOOKING',
+                paymentId: 'FREE_PAYMENT',
+                roomId: currentBookingDraft?.roomId || '',
+                roomName: currentBookingDraft?.roomName || '',
+                checkIn,
+                checkOut,
+                guests,
+                totalPrice: 0,
+                status: 'confirmed',
+                dateBooked: new Date().toISOString(),
+                promoCode: appliedPromo ? appliedPromo.code : null,
+                discountAmount: appliedPromo ? appliedPromo.discountAmount : 0
+            };
+            addBooking(newBooking);
+            setBookingDraft(null);
+            setIsSuccess(true);
+            setIsProcessing(false);
+            return;
+        }
 
         const scriptLoaded = await loadRazorpayScript();
         if (!scriptLoaded) {
@@ -79,11 +172,9 @@ const Booking = () => {
             return;
         }
 
-        const bookingId = `booking_${Date.now()}`;
-
         try {
             const order = await paymentAPI.createOrder({
-                amount: totalAmount,
+                amount: finalAmount,
                 bookingId,
                 roomId: currentBookingDraft?.roomId,
                 roomName: currentBookingDraft?.roomName,
@@ -115,12 +206,15 @@ const Booking = () => {
                             order_id: response.razorpay_order_id,
                             payment_id: response.razorpay_payment_id,
                             signature: response.razorpay_signature,
-                            amount: totalAmount,
+                            amount: finalAmount,
                             bookingId,
                             roomId: currentBookingDraft?.roomId,
                             roomName: currentBookingDraft?.roomName,
-                            checkIn, // Send check-in date
-                            checkOut // Send check-out date
+                            checkIn,
+                            checkOut,
+                            promoCode: appliedPromo ? appliedPromo.code : null,
+                            discountAmount: (seasonalDiscountAmount || 0) + (appliedPromo ? appliedPromo.discountAmount : 0),
+                            seasonalDiscount: seasonalDiscount || null
                         });
 
                         if (!verifyResponse.success) {
@@ -138,9 +232,11 @@ const Booking = () => {
                             checkIn,
                             checkOut,
                             guests,
-                            totalPrice: totalAmount,
+                            totalPrice: finalAmount,
                             status: 'confirmed',
                             dateBooked: new Date().toISOString(),
+                            promoCode: appliedPromo ? appliedPromo.code : null,
+                            discountAmount: appliedPromo ? appliedPromo.discountAmount : 0
                         };
 
                         addBooking(newBooking);
@@ -188,6 +284,10 @@ const Booking = () => {
         );
     }
 
+    const grossTotal = calculateTotal();
+    const seasonalDiscountAmount = getSeasonalDiscountAmount();
+    const finalTotal = getFinalAmount();
+
     return (
         <div className="pt-24 min-h-screen bg-dark-900">
             <div className="container mx-auto px-6 py-12">
@@ -198,25 +298,53 @@ const Booking = () => {
                     <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="bg-dark-800 p-8 border-t-4 border-gold-400"
+                        className="space-y-6"
                     >
-                        <h3 className="text-2xl font-serif text-stone-100 mb-6">Booking Summary</h3>
-                        <div className="space-y-4 text-stone-300">
-                            <div className="flex justify-between border-b border-stone-700 pb-4">
-                                <span>Room</span>
-                                <span className="font-bold text-gold-400">{currentBookingDraft?.roomName}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-stone-700 pb-4">
-                                <span>Price per night</span>
-                                <span>${currentBookingDraft?.totalPrice}</span>
-                            </div>
-                            <div className="pt-4">
-                                <div className="flex justify-between items-center text-lg font-bold text-white">
-                                    <span>Total Estimate</span>
-                                    <span>${calculateTotal()}</span>
+                        <div className="bg-dark-800 p-8 border-t-4 border-gold-400">
+                            <h3 className="text-2xl font-serif text-stone-100 mb-6">Booking Summary</h3>
+                            <div className="space-y-4 text-stone-300">
+                                <div className="flex justify-between border-b border-stone-700 pb-4">
+                                    <span>Room</span>
+                                    <span className="font-bold text-gold-400">{currentBookingDraft?.roomName}</span>
                                 </div>
-                                <p className="text-xs text-stone-500 mt-2 text-right">*Excludes taxes and fees</p>
+                                <div className="flex justify-between border-b border-stone-700 pb-4">
+                                    <span>Price per night</span>
+                                    <span>₹{currentBookingDraft?.totalPrice}</span>
+                                </div>
+                                <div className="pt-4">
+                                    <div className="flex justify-between items-center text-lg text-white mb-2">
+                                        <span>Subtotal</span>
+                                        <span>₹{grossTotal.toLocaleString('en-IN')}</span>
+                                    </div>
+                                    {seasonalDiscount && (
+                                        <div className="flex justify-between items-center text-blue-400 mb-2">
+                                            <span>Seasonal Offer ({seasonalDiscount.name})</span>
+                                            <span>-₹{seasonalDiscountAmount.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+                                    {appliedPromo && (
+                                        <div className="flex justify-between items-center text-green-400 mb-2">
+                                            <span>Promo Code ({appliedPromo.code})</span>
+                                            <span>-₹{appliedPromo.discountAmount.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center text-xl font-bold text-gold-400 border-t border-stone-700 pt-4 mt-2">
+                                        <span>Total Payable</span>
+                                        <span>₹{finalTotal.toLocaleString('en-IN')}</span>
+                                    </div>
+                                    <p className="text-xs text-stone-500 mt-2 text-right">*Excludes taxes and fees</p>
+                                </div>
                             </div>
+                        </div>
+
+                        {/* Promo Code Input */}
+                        <div className="bg-dark-800 p-6 border border-stone-800">
+                            <PromoCodeInput
+                                bookingAmount={grossTotal - seasonalDiscountAmount}
+                                roomType={currentBookingDraft?.roomName || ''}
+                                checkInDate={checkIn}
+                                onPromoApplied={handlePromoApplied}
+                            />
                         </div>
                     </motion.div>
 
@@ -286,9 +414,9 @@ const Booking = () => {
                             <Button
                                 type="submit"
                                 className="w-full mt-6"
-                                disabled={!checkIn || !checkOut || !user || isProcessing}
+                                disabled={!checkIn || !checkOut || isProcessing}
                             >
-                                {isProcessing ? 'Processing Payment...' : (user ? 'Pay & Confirm Reservation' : 'Login to Book')}
+                                {isProcessing ? 'Processing...' : (user ? `Pay ₹${finalTotal.toLocaleString('en-IN')} & Confirm` : 'Login to Book')}
                             </Button>
                         </form>
                     </motion.div>

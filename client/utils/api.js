@@ -98,7 +98,7 @@ export const paymentAPI = {
         return response.data;
     },
 
-    verifyPayment: async ({ order_id, payment_id, signature, amount, bookingId, roomId, roomName, checkIn, checkOut }) => {
+    verifyPayment: async ({ order_id, payment_id, signature, amount, bookingId, roomId, roomName, checkIn, checkOut, promoCode, discountAmount, seasonalDiscount }) => {
         const response = await api.post('/payment/verify', {
             order_id,
             payment_id,
@@ -109,6 +109,9 @@ export const paymentAPI = {
             roomName,
             checkIn,
             checkOut,
+            promoCode,
+            discountAmount,
+            seasonalDiscount
         });
         return response.data;
     },
