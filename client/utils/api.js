@@ -1,6 +1,21 @@
 import axios from 'axios';
 
-const apiBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const DEFAULT_API_ORIGIN = import.meta.env.DEV
+    ? 'http://localhost:4000'
+    : 'https://hotel-management-system-wqcn.onrender.com';
+
+const normalizeApiBaseURL = (value) => {
+    const trimmedValue = (value || '').trim().replace(/\/+$/, '');
+    if (!trimmedValue) {
+        return '';
+    }
+
+    return trimmedValue.endsWith('/api') ? trimmedValue : `${trimmedValue}/api`;
+};
+
+export const apiBaseURL = normalizeApiBaseURL(
+    import.meta.env.VITE_API_URL || DEFAULT_API_ORIGIN
+);
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -22,7 +37,7 @@ api.interceptors.response.use(
         }
         if (error.request) {
             return Promise.reject({
-                message: 'Backend unavailable. Please start the server at http://localhost:4000.',
+                message: `Backend unavailable. Please check the API server at ${apiBaseURL}.`,
                 isNetworkError: true,
             });
         }

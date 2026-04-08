@@ -24,15 +24,29 @@ import initScheduler from './utils/scheduler.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const defaultAllowedOrigins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"];
+const configuredOrigins = [process.env.FRONTEND_URL, process.env.CORS_ORIGINS]
+    .filter(Boolean)
+    .flatMap((value) => value.split(','))
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigins])];
 
 // Log env vars for debugging
 console.log('Starting server...');
 console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Defined (Starts with ' + process.env.MONGODB_URI.substring(0, 10) + ')' : 'UNDEFINED');
+console.log('Allowed CORS origins:', allowedOrigins);
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"],
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true
 }));
 
