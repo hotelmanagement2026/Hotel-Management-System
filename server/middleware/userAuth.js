@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import fs from "fs";
 
-const LOG_FILE = 'c:\\Users\\soumi\\OneDrive\\Desktop\\lumière-luxury-hotels\\server\\server_debug.log';
+import path from "path";
+const LOG_FILE = path.join(process.cwd(), 'server_debug.log');
 
 const log = (msg) => {
     try {
