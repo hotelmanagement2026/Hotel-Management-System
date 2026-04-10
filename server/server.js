@@ -50,8 +50,9 @@ app.use(cors({
     credentials: true
 }));
 
-const LOG_FILE = 'c:\\Users\\soumi\\OneDrive\\Desktop\\lumière-luxury-hotels\\server\\server_debug.log';
 import fs from 'fs';
+import path from 'path';
+const LOG_FILE = path.join(process.cwd(), 'server_debug.log');
 
 // Log startup details
 try {
