@@ -1,29 +1,19 @@
 import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
+import transporter from './config/nodemailer.js';
 dotenv.config();
-
-const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false,
-    auth: {
-        user: process.env.SENDER_EMAIL,
-        pass: process.env.BREVO_API_KEY,
-    }
-});
 
 async function main() {
     try {
-        console.log('Sending test email...');
+        console.log('Sending test email via Brevo HTTP API...');
         const info = await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: process.env.EMAIL_USER, // send to self
-            subject: "Test Email from Lumiere App",
-            text: "This is a test email.",
+            from: process.env.SENDER_EMAIL,
+            to: process.env.SENDER_EMAIL, // send to self
+            subject: "Test Email from Lumiere App (API Mode)",
+            text: "This is a test email sent via Brevo API bypassing SMTP port blocks.",
         });
-        console.log("Message sent: %s", info.messageId);
+        console.log("Message sent successfully using API. ID:", info.messageId || info.id || info.id);
     } catch (error) {
-        console.error("Error sending email:", error);
+        console.error("Error sending email:", error.message);
     }
 }
 
