@@ -12,10 +12,12 @@ const buildUserData = (user) => ({
 });
 
 const setAuthCookie = (res, token) => {
+    // If FRONTEND_URL is set, we are in a deployed cross-origin environment.
+    const isDeployed = process.env.NODE_ENV === 'production' || !!process.env.FRONTEND_URL;
     res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        secure: isDeployed, // Must be true for SameSite=none
+        sameSite: isDeployed ? 'none' : 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 };
@@ -96,10 +98,11 @@ export const login = async (req, res) => {
 // Logout controller
 export const logout = async (req, res) => {
     try {
+        const isDeployed = process.env.NODE_ENV === 'production' || !!process.env.FRONTEND_URL;
         res.clearCookie('token', {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+            secure: isDeployed,
+            sameSite: isDeployed ? 'none' : 'strict',
         });
         return res.json({ success: true, message: 'Logout successful' });
     } catch (error) {
