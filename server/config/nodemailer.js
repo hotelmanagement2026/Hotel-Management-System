@@ -1,23 +1,52 @@
-import nodemailer from 'nodemailer';
-import dns from 'dns';
+import { Resend } from 'resend';
+import fs from 'fs';
 
-// Force node to prefer IPv4 over IPv6. This often fixes connection timeouts on cloud hosts like Render
-// when sending mail, as Google's IPv6 SMTP can drop packets from unrecognized cloud IPs.
-dns.setDefaultResultOrder('ipv4first');
+// Initialize Resend with API Key
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-    family: 4, // Force IPv4 connection
-    requireTLS: true,
-});
+/**
+ * Compatibility wrapper to mimic nodemailer transporter
+ * This avoids refactoring every single call site in the controllers.
+ */
+const transporter = {
+    sendMail: async (options) => {
+        const { from, to, subject, text, html, attachments } = options;
+        
+        // Final fallback for 'from' address. 
+        // Resend requires a verified domain or 'onboarding@resend.dev' for testing.
+        const fromAddress = from || process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+
+        const resendOptions = {
+            from: fromAddress,
+            to: Array.isArray(to) ? to : [to],
+            subject,
+            text,
+            html: html || text,
+        };
+
+        // Handle attachments if present (e.g., for Invoices)
+        if (attachments && attachments.length > 0) {
+            resendOptions.attachments = await Promise.all(attachments.map(async (att) => {
+                const attachment = { filename: att.filename };
+                if (att.path) {
+                    // Resend expects content as Buffer or string for attachments
+                    attachment.content = fs.readFileSync(att.path);
+                } else if (att.content) {
+                    attachment.content = att.content;
+                }
+                return attachment;
+            }));
+        }
+
+        const { data, error } = await resend.emails.send(resendOptions);
+
+        if (error) {
+            console.error('Resend Error:', error);
+            throw new Error(error.message);
+        }
+
+        return data;
+    }
+};
 
 export default transporter;
