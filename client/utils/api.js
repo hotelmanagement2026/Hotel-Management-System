@@ -5,6 +5,12 @@ const DEFAULT_API_ORIGIN = import.meta.env.DEV
     : 'https://hotel-management-system-wqcn.onrender.com';
 
 const normalizeApiBaseURL = (value) => {
+    // If someone set VITE_API_URL to relative paths, let's detect it and use default absolute URL instead
+    // so we can bypass Vercel proxy limits on cold starts.
+    if (!value || value === '/' || value === '/api') {
+        value = DEFAULT_API_ORIGIN;
+    }
+
     const trimmedValue = (value || '').trim().replace(/\/+$/, '');
     if (!trimmedValue) {
         return '';
@@ -24,7 +30,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 10000,
+    timeout: 120000, // Increased to 120s to accommodate Render free tier cold starts
 });
 
 // Response interceptor for error handling
@@ -32,12 +38,19 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response) {
+            // Handle Vercel 504 Gateway Timeout if proxy is somehow still used by an older build
+            if (error.response.status === 504) {
+                return Promise.reject({ 
+                    message: `Backend is waking up (this can take ~50 seconds). Please try again.`, 
+                    status: 504 
+                });
+            }
             const message = error.response.data?.message || 'An error occurred';
             return Promise.reject({ message, status: error.response.status });
         }
         if (error.request) {
             return Promise.reject({
-                message: `Backend unavailable. Please check the API server at ${apiBaseURL}.`,
+                message: `Backend unavailable. Please check the API server at ${apiBaseURL}. (If starting from sleep, it may take 1 min)`,
                 isNetworkError: true,
             });
         }
