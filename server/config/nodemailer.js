@@ -16,6 +16,7 @@ const transporter = nodemailer.createTransport({
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
+    family: 4, // Force IPv4 connection to prevent ENETUNREACH across IPv6 boundaries
 });
 
 export default transporter;
