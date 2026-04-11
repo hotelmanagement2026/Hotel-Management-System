@@ -50,7 +50,7 @@ api.interceptors.response.use(
         }
         if (error.request) {
             return Promise.reject({
-                message: `Backend unavailable. Please check the API server at ${apiBaseURL}. (If starting from sleep, it may take 1 min)`,
+                message: `Unable to connect to the server. If this is the first request in a while, the server may be waking up (this can take ~1 minute). Please try again shortly.`,
                 isNetworkError: true,
             });
         }
