@@ -38,32 +38,20 @@ console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Defined (Starts with ' + 
 
 app.use(express.json());
 app.use(cookieParser());
-// CORS: Allow all Vercel origins + localhost
+// CORS: Dynamically reflect any origin (required for cross-domain cookies on Vercel+Render)
 const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
 console.log('CORS Frontend URL:', frontendUrl);
 
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow no-origin requests (server-to-server, curl)
-        if (!origin) return callback(null, true);
-        // Allow localhost
-        if (origin.startsWith('http://localhost')) return callback(null, true);
-        // Allow any .vercel.app subdomain
-        if (origin.endsWith('.vercel.app')) return callback(null, true);
-        // Allow configured FRONTEND_URL exactly
-        if (origin === frontendUrl) return callback(null, true);
-        // Deny everything else (but log it)
-        console.warn('CORS denied for origin:', origin);
-        return callback(null, false);
-    },
+    origin: true, // Reflect the request origin - allows any origin while keeping credentials
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     optionsSuccessStatus: 200
 }));
 
-// Handle preflight for all routes
-app.options('*', cors());
+// Handle preflight for all routes explicitly
+app.options('*', cors({ origin: true, credentials: true }));
 
 // Log startup details
 try {
