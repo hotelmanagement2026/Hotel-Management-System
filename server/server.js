@@ -38,16 +38,39 @@ console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Defined (Starts with ' + 
 
 app.use(express.json());
 app.use(cookieParser());
+// Robust CORS Configuration
+const getFrontendUrl = () => {
+    let url = process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Remove trailing slash if present
+    return url.replace(/\/$/, '');
+};
+
 const allowedOrigins = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:5173",
-    process.env.FRONTEND_URL
+    getFrontendUrl(),
+    // Include the Vercel URL without the domain part if it's a subpath, 
+    // but here we allow the specific frontend URL
 ].filter(Boolean);
 
+console.log('CORS Origins Allowed:', allowedOrigins);
+
 app.use(cors({
-    origin: allowedOrigins,
-    credentials: true
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+            callback(null, true);
+        } else {
+            console.warn(`CORS blocked request from origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Log startup details
