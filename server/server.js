@@ -50,8 +50,7 @@ app.use(cors({
     optionsSuccessStatus: 200
 }));
 
-// Handle preflight for all routes explicitly
-app.options('*', cors({ origin: true, credentials: true }));
+// Preflight is handled automatically by the app.use(cors(...)) middleware explicitly above
 
 // Log startup details
 try {
