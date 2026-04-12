@@ -64,11 +64,10 @@ export const register = async (req, res) => {
             `,
         };
 
-        try {
-            await transporter.sendMail(mailOptions);
-        } catch (emailError) {
-            console.warn('Email send failed:', emailError.message);
-        }
+        // Send welcome email in background (non-blocking - don't await)
+        transporter.sendMail(mailOptions).catch(emailError => {
+            console.warn('Welcome email failed:', emailError.message);
+        });
 
         return res.json({
             success: true,
@@ -165,7 +164,8 @@ export const sendVerifyOtp = async (req, res) => {
             `,
         };
 
-        await transporter.sendMail(mailOptions);
+        // Save OTP first, then send email in background (non-blocking)
+        transporter.sendMail(mailOptions).catch(e => console.warn('Verify OTP email failed:', e.message));
 
         return res.json({ success: true, message: 'Verification code sent to your email' });
     } catch (error) {
@@ -268,7 +268,8 @@ export const sendResetOtp = async (req, res) => {
             `,
         };
 
-        await transporter.sendMail(mailOptions);
+        // Send reset email in background (non-blocking)
+        transporter.sendMail(mailOptions).catch(e => console.warn('Reset OTP email failed:', e.message));
 
         return res.json({ success: true, message: 'Password reset code sent to your email' });
     } catch (error) {

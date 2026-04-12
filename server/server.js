@@ -38,40 +38,32 @@ console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Defined (Starts with ' + 
 
 app.use(express.json());
 app.use(cookieParser());
-// Robust CORS Configuration
-const getFrontendUrl = () => {
-    let url = process.env.FRONTEND_URL || 'http://localhost:5173';
-    // Remove trailing slash if present
-    return url.replace(/\/$/, '');
-};
-
-const allowedOrigins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:5173",
-    getFrontendUrl(),
-    // Include the Vercel URL without the domain part if it's a subpath, 
-    // but here we allow the specific frontend URL
-].filter(Boolean);
-
-console.log('CORS Origins Allowed:', allowedOrigins);
+// CORS: Allow all Vercel origins + localhost
+const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+console.log('CORS Frontend URL:', frontendUrl);
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
+        // Allow no-origin requests (server-to-server, curl)
         if (!origin) return callback(null, true);
-        
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
-            callback(null, true);
-        } else {
-            console.warn(`CORS blocked request from origin: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
-        }
+        // Allow localhost
+        if (origin.startsWith('http://localhost')) return callback(null, true);
+        // Allow any .vercel.app subdomain
+        if (origin.endsWith('.vercel.app')) return callback(null, true);
+        // Allow configured FRONTEND_URL exactly
+        if (origin === frontendUrl) return callback(null, true);
+        // Deny everything else (but log it)
+        console.warn('CORS denied for origin:', origin);
+        return callback(null, false);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
+    optionsSuccessStatus: 200
 }));
+
+// Handle preflight for all routes
+app.options('*', cors());
 
 // Log startup details
 try {
