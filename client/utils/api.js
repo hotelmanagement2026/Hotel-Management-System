@@ -9,7 +9,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 10000,
+    timeout: 30000, // Increased to 30s for Render cold starts
 });
 
 // Response interceptor for error handling
@@ -22,7 +22,7 @@ api.interceptors.response.use(
         }
         if (error.request) {
             return Promise.reject({
-                message: 'Backend unavailable. Please start the server at http://localhost:4000.',
+                message: `Backend unavailable at ${apiBaseURL}. Please ensure the server is running.`,
                 isNetworkError: true,
             });
         }
