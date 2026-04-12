@@ -6,11 +6,79 @@ import Room from '../models/Room.js';
 import userModel from '../models/userModel.js';
 import { sendBookingConfirmation, sendCancellationEmail } from '../utils/email.js';
 
+const parseBookingDates = (checkIn, checkOut) => {
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime())) {
+        return { error: 'Invalid check-in or check-out date' };
+    }
+
+    if (checkOutDate <= checkInDate) {
+        return { error: 'Check-out date must be after check-in date' };
+    }
+
+    return { checkInDate, checkOutDate };
+};
+
+const findOverlappingBooking = async ({ roomId, checkInDate, checkOutDate, excludeOrderId = null }) => {
+    const query = {
+        roomId: String(roomId),
+        status: 'verified',
+        checkIn: { $lt: checkOutDate },
+        checkOut: { $gt: checkInDate },
+    };
+
+    if (excludeOrderId) {
+        query.orderId = { $ne: excludeOrderId };
+    }
+
+    return Transaction.findOne(query).select('bookingId checkIn checkOut').lean();
+};
+
 export const createOrder = async (req, res) => {
-    const { amount, bookingId, roomId, roomName } = req.body;
+    const { amount, bookingId, roomId, roomName, checkIn, checkOut } = req.body;
 
     if (!amount || Number.isNaN(Number(amount))) {
         return res.status(400).json({ success: false, message: 'Invalid amount' });
+    }
+
+    if (!roomId) {
+        return res.status(400).json({ success: false, message: 'Room ID is required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+        return res.status(400).json({ success: false, message: 'Invalid room ID' });
+    }
+
+    if (!checkIn || !checkOut) {
+        return res.status(400).json({ success: false, message: 'Check-in and check-out dates are required' });
+    }
+
+    const { checkInDate, checkOutDate, error: dateError } = parseBookingDates(checkIn, checkOut);
+    if (dateError) {
+        return res.status(400).json({ success: false, message: dateError });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ success: false, message: 'Booking service unavailable. Please try again.' });
+    }
+
+    const room = await Room.findById(roomId).select('isAvailable').lean();
+    if (!room) {
+        return res.status(404).json({ success: false, message: 'Room not found' });
+    }
+
+    if (!room.isAvailable) {
+        return res.status(400).json({ success: false, message: 'Room is currently unavailable' });
+    }
+
+    const overlappingBooking = await findOverlappingBooking({ roomId, checkInDate, checkOutDate });
+    if (overlappingBooking) {
+        return res.status(409).json({
+            success: false,
+            message: 'Room is already booked for the selected dates. Please choose different dates.',
+        });
     }
 
     let razorpayInstance;
@@ -28,6 +96,8 @@ export const createOrder = async (req, res) => {
             bookingId,
             roomId,
             roomName,
+            checkIn,
+            checkOut,
         },
     };
 
@@ -45,6 +115,8 @@ export const createOrder = async (req, res) => {
                     orderId: order.id,
                     status: 'created',
                     receipt: order.receipt,
+                    checkIn: checkInDate,
+                    checkOut: checkOutDate,
                     userId: req.userId // Save user ID immediately
                 });
             } catch (dbError) {
@@ -55,7 +127,12 @@ export const createOrder = async (req, res) => {
         return res.status(200).json(order);
     } catch (error) {
         const razorpayMessage = error?.error?.description || error?.error?.reason;
-        const message = razorpayMessage || error.message || 'Failed to create order';
+        let message = razorpayMessage || error.message || 'Failed to create order';
+
+        if (/authentication failed/i.test(message)) {
+            message = 'Razorpay credentials are invalid. Set valid RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in server/.env.';
+        }
+
         console.log('Create order failed:', message);
         return res.status(500).json({
             success: false,
@@ -74,6 +151,54 @@ export const verifyPayment = async (req, res) => {
 
     if (!secret) {
         return res.status(500).json({ success: false, message: 'Razorpay secret missing' });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ success: false, message: 'Booking service unavailable. Please try again.' });
+    }
+
+    const existingTransaction = await Transaction.findOne({ orderId: order_id })
+        .select('roomId checkIn checkOut')
+        .lean();
+
+    const resolvedRoomId = roomId || existingTransaction?.roomId;
+    const resolvedCheckIn = checkIn || existingTransaction?.checkIn;
+    const resolvedCheckOut = checkOut || existingTransaction?.checkOut;
+
+    if (!resolvedRoomId || !resolvedCheckIn || !resolvedCheckOut) {
+        return res.status(400).json({ success: false, message: 'Booking dates are required for payment verification' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(resolvedRoomId)) {
+        return res.status(400).json({ success: false, message: 'Invalid room ID' });
+    }
+
+    const { checkInDate, checkOutDate, error: dateError } = parseBookingDates(resolvedCheckIn, resolvedCheckOut);
+    if (dateError) {
+        return res.status(400).json({ success: false, message: dateError });
+    }
+
+    const room = await Room.findById(resolvedRoomId).select('isAvailable').lean();
+    if (!room) {
+        return res.status(404).json({ success: false, message: 'Room not found' });
+    }
+
+    if (!room.isAvailable) {
+        return res.status(400).json({ success: false, message: 'Room is currently unavailable' });
+    }
+
+    const overlappingBooking = await findOverlappingBooking({
+        roomId: resolvedRoomId,
+        checkInDate,
+        checkOutDate,
+        excludeOrderId: order_id,
+    });
+
+    if (overlappingBooking) {
+        return res.status(409).json({
+            success: false,
+            message: 'Room is already booked for the selected dates. Please choose different dates.',
+        });
     }
 
     const hmac = createHmac('sha256', secret);
@@ -100,18 +225,14 @@ export const verifyPayment = async (req, res) => {
     if (bookingId) {
         update.bookingId = bookingId;
     }
-    if (roomId) {
-        update.roomId = roomId;
+    if (resolvedRoomId) {
+        update.roomId = resolvedRoomId;
     }
     if (roomName) {
         update.roomName = roomName;
     }
-    if (checkIn) {
-        update.checkIn = new Date(checkIn);
-    }
-    if (checkOut) {
-        update.checkOut = new Date(checkOut);
-    }
+    update.checkIn = checkInDate;
+    update.checkOut = checkOutDate;
 
     if (req.userId) {
         update.userId = req.userId;
@@ -134,27 +255,14 @@ export const verifyPayment = async (req, res) => {
             console.log('Error fetching user for email:', err.message);
         }
     }
-
-
-    if (mongoose.connection.readyState === 1) {
-        try {
-            await Transaction.findOneAndUpdate(
-                { orderId: order_id },
-                update,
-                { new: true, upsert: true, setDefaultsOnInsert: true }
-            );
-
-            // Set room as unavailable after successful booking
-            if (roomId) {
-                try {
-                    await Room.findByIdAndUpdate(roomId, { isAvailable: false });
-                } catch (roomError) {
-                    console.log('Failed to update room availability:', roomError.message);
-                }
-            }
-        } catch (dbError) {
-            console.log('Transaction update failed:', dbError.message);
-        }
+    try {
+        await Transaction.findOneAndUpdate(
+            { orderId: order_id },
+            update,
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+    } catch (dbError) {
+        console.log('Transaction update failed:', dbError.message);
     }
 
     // Send confirmation email
@@ -164,8 +272,8 @@ export const verifyPayment = async (req, res) => {
             name: userName || 'Guest',
             bookingId,
             roomName: roomName || 'Room',
-            checkIn: checkIn || new Date(),
-            checkOut: checkOut || new Date(),
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
             amount: amount,
             currency: 'INR'
         });

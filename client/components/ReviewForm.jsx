@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import axios from 'axios';
 import { FaStar } from 'react-icons/fa';
-import api from '../utils/api';
 
 const ReviewForm = ({ roomId, onReviewSubmitted }) => {
     const [rating, setRating] = useState(0);
@@ -26,7 +26,11 @@ const ReviewForm = ({ roomId, onReviewSubmitted }) => {
         setMessage({ type: '', text: '' });
 
         try {
-            const response = await api.post('/reviews', { roomId, rating, comment });
+            const response = await axios.post(
+                `${import.meta.env.VITE_API_URL}/reviews`,
+                { roomId, rating, comment },
+                { withCredentials: true }
+            );
 
             if (response.data.success) {
                 setMessage({ type: 'success', text: 'Review submitted for admin approval.' });

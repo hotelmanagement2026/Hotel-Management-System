@@ -1,7 +1,20 @@
 import PromoCode from '../models/PromoCode.js';
 
 import fs from 'fs';
-const LOG_FILE = 'c:\\Users\\soumi\\OneDrive\\Desktop\\lumière-luxury-hotels\\server\\server_debug.log';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const LOG_DIR = path.join(__dirname, '..', 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'server_debug.log');
+
+const writeLog = (line) => {
+    try {
+        fs.mkdirSync(LOG_DIR, { recursive: true });
+        fs.appendFileSync(LOG_FILE, line);
+    } catch (e) { }
+};
 
 // Validate promo code (Public - requires user authentication)
 export const validatePromoCode = async (req, res) => {
@@ -9,9 +22,7 @@ export const validatePromoCode = async (req, res) => {
         const { code, bookingAmount, roomType } = req.body;
 
         // Log to file
-        try {
-            fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] PROMO CHECK: Code=${code}, Amount=${bookingAmount}, Room=${roomType}\n`);
-        } catch (e) { }
+        writeLog(`[${new Date().toISOString()}] PROMO CHECK: Code=${code}, Amount=${bookingAmount}, Room=${roomType}\n`);
 
         if (!code || !bookingAmount) {
             return res.status(400).json({
@@ -33,9 +44,7 @@ export const validatePromoCode = async (req, res) => {
         });
 
         if (!promoCode) {
-            try {
-                fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] PROMO FAIL: Code ${code} not found\n`);
-            } catch (e) { }
+            writeLog(`[${new Date().toISOString()}] PROMO FAIL: Code ${code} not found\n`);
             return res.status(404).json({
                 success: false,
                 message: 'Invalid promo code'
@@ -45,9 +54,7 @@ export const validatePromoCode = async (req, res) => {
         // Check if promo can be applied
         const validation = promoCode.canApplyToBooking(bookingAmount, roomType);
 
-        try {
-            fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] PROMO RESULT: ${JSON.stringify(validation)} | Details: ValidFrom=${promoCode.validFrom}, MinAmount=${promoCode.minBookingAmount}, Types=${promoCode.applicableRoomTypes}\n`);
-        } catch (e) { }
+        writeLog(`[${new Date().toISOString()}] PROMO RESULT: ${JSON.stringify(validation)} | Details: ValidFrom=${promoCode.validFrom}, MinAmount=${promoCode.minBookingAmount}, Types=${promoCode.applicableRoomTypes}\n`);
 
         if (!validation.valid) {
             return res.status(400).json({
@@ -73,9 +80,7 @@ export const validatePromoCode = async (req, res) => {
         });
     } catch (error) {
         console.error('Validate promo code error:', error);
-        try {
-            fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] PROMO ERROR: ${error.message}\n`);
-        } catch (e) { }
+        writeLog(`[${new Date().toISOString()}] PROMO ERROR: ${error.message}\n`);
         return res.status(500).json({
             success: false,
             message: 'Failed to validate promo code'
@@ -100,9 +105,7 @@ export const createPromoCode = async (req, res) => {
             isActive
         } = req.body;
 
-        try {
-            fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] PROMO CREATE: Code=${code}, Desc=${description}, Type=${discountType}, Val=${discountValue}\n`);
-        } catch (e) { }
+        writeLog(`[${new Date().toISOString()}] PROMO CREATE: Code=${code}, Desc=${description}, Type=${discountType}, Val=${discountValue}\n`);
 
         // Validation
         if (!code || !description || !discountType || discountValue === undefined || !validFrom || !validUntil) {
@@ -146,9 +149,7 @@ export const createPromoCode = async (req, res) => {
 
         await promoCode.save();
 
-        try {
-            fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] PROMO CREATE SUCCESS: ${code}\n`);
-        } catch (e) { }
+        writeLog(`[${new Date().toISOString()}] PROMO CREATE SUCCESS: ${code}\n`);
 
         return res.status(201).json({
             success: true,
@@ -157,9 +158,7 @@ export const createPromoCode = async (req, res) => {
         });
     } catch (error) {
         console.error('Create promo code error:', error);
-        try {
-            fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] PROMO CREATE ERROR: ${error.message}\n`);
-        } catch (e) { }
+        writeLog(`[${new Date().toISOString()}] PROMO CREATE ERROR: ${error.message}\n`);
         return res.status(500).json({
             success: false,
             message: 'Failed to create promo code'

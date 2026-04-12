@@ -1,7 +1,7 @@
 import Transaction from '../models/Transaction.js';
-import Room from '../models/Room.js';
 import userModel from '../models/userModel.js';
 import transporter from '../config/nodemailer.js';
+import { formatExactTime } from '../utils/formatDate.js';
 
 // Check-In Booking
 export const checkInBooking = async (req, res) => {
@@ -48,7 +48,7 @@ export const checkInBooking = async (req, res) => {
         if (userEmail) {
             try {
                 const mailOptions = {
-                    from: process.env.SENDER_EMAIL,
+                    from: `${process.env.SENDER_NAME} <${process.env.SENDER_EMAIL}>`,
                     to: userEmail,
                     subject: 'Welcome to Lumière Luxury Hotels',
                     html: `
@@ -56,40 +56,43 @@ export const checkInBooking = async (req, res) => {
                         <html>
                         <head>
                             <style>
-                                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                                .header { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #d4af37; padding: 30px; text-align: center; }
-                                .content { background: #f9f9f9; padding: 30px; }
-                                .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-                                .highlight { color: #d4af37; font-weight: bold; }
+                                body { font-family: 'Poppins', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                                .container { max-width: 600px; margin: 20px auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+                                .header { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #d4af37; padding: 40px; text-align: center; }
+                                .header h1 { margin: 0; font-size: 28px; letter-spacing: 2px; text-transform: uppercase; }
+                                .content { background: #ffffff; padding: 40px; }
+                                .details-box { background-color: #F8F5F0; padding: 25px; border-radius: 6px; margin: 25px 0; border-left: 4px solid #D4AF37; }
+                                .footer { background-color: #1a1a1a; text-align: center; padding: 25px; color: #999; font-size: 12px; }
+                                .highlight { color: #d4af37; font-weight: bold; font-family: cursive; font-size: 18px; }
                             </style>
                         </head>
                         <body>
                             <div class="container">
                                 <div class="header">
-                                    <h1>Welcome to Lumière Luxury Hotels</h1>
+                                    <h1>Lumière</h1>
+                                    <p style="margin: 5px 0 0; font-size: 12px; opacity: 0.8; letter-spacing: 1px;">Luxury Hotels</p>
                                 </div>
                                 <div class="content">
-                                    <h2>Check-In Confirmation</h2>
-                                    <p>Dear ${userName},</p>
-                                    <p>We are delighted to welcome you to Lumière Luxury Hotels!</p>
+                                    <h2 style="color: #1a1a1a; border-bottom: 1px solid #eee; padding-bottom: 10px;">Check-In Confirmation</h2>
+                                    <p>Dear <strong>${userName}</strong>,</p>
+                                    <p>We are absolutely delighted to welcome you to <strong>Lumière Luxury Hotels</strong>!</p>
                                     
-                                    <h3>Your Booking Details:</h3>
-                                    <p><strong>Room:</strong> ${booking.roomName}</p>
-                                    <p><strong>Check-In:</strong> ${new Date(booking.checkIn).toLocaleDateString()}</p>
-                                    <p><strong>Check-Out:</strong> ${new Date(booking.checkOut).toLocaleDateString()}</p>
-                                    <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+                                    <div class="details-box">
+                                        <h3 style="margin-top: 0; font-size: 16px; color: #1a1a1a;">Stay Details:</h3>
+                                        <p style="margin: 5px 0;"><strong>Booking ID:</strong> ${booking.bookingId}</p>
+                                        <p style="margin: 5px 0;"><strong>Room Reference:</strong> ${booking.roomName}</p>
+                                        <p style="margin: 5px 0;"><strong>Departure Date:</strong> ${new Date(booking.checkOut).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
+                                        <p style="margin: 5px 0;"><strong>Check-In Time:</strong> ${formatExactTime(new Date())}</p>
+                                    </div>
                                     
-                                    <p>Your room is ready and waiting for you. Our team is here to ensure your stay is exceptional.</p>
+                                    <p>Your sanctuary is ready. Our dedicated team is here to ensure your experience exceeds every expectation.</p>
+                                    <p>If you require anything—from private dining to concierge recommendations—simply dial '0' from your room.</p>
                                     
-                                    <p>If you need anything during your stay, please don't hesitate to contact our front desk.</p>
-                                    
-                                    <p>Enjoy your stay!</p>
-                                    
+                                    <p style="margin-top: 30px;">Enjoy your stay with us.</p>
                                     <p class="highlight">The Lumière Team</p>
                                 </div>
                                 <div class="footer">
-                                    <p>Lumière Luxury Hotels | Experience Refined Elegance</p>
+                                    <p>&copy; ${new Date().getFullYear()} Lumière Luxury Hotels | Experience Refined Elegance</p>
                                 </div>
                             </div>
                         </body>
@@ -147,15 +150,6 @@ export const checkOutBooking = async (req, res) => {
         booking.bookingStatus = 'checked_out';
         await booking.save();
 
-        // Set room as available
-        if (booking.roomId) {
-            try {
-                await Room.findByIdAndUpdate(booking.roomId, { isAvailable: true });
-            } catch (roomError) {
-                console.error('Failed to update room availability:', roomError);
-            }
-        }
-
         // Get user email
         let userEmail = '';
         let userName = 'Guest';
@@ -175,7 +169,7 @@ export const checkOutBooking = async (req, res) => {
         if (userEmail) {
             try {
                 const mailOptions = {
-                    from: process.env.SENDER_EMAIL,
+                    from: `${process.env.SENDER_NAME} <${process.env.SENDER_EMAIL}>`,
                     to: userEmail,
                     subject: 'Thank You for Staying With Us',
                     html: `
@@ -183,38 +177,42 @@ export const checkOutBooking = async (req, res) => {
                         <html>
                         <head>
                             <style>
-                                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                                .header { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #d4af37; padding: 30px; text-align: center; }
-                                .content { background: #f9f9f9; padding: 30px; }
-                                .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-                                .highlight { color: #d4af37; font-weight: bold; }
+                                body { font-family: 'Poppins', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                                .container { max-width: 600px; margin: 20px auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+                                .header { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #d4af37; padding: 40px; text-align: center; }
+                                .header h1 { margin: 0; font-size: 28px; letter-spacing: 2px; text-transform: uppercase; }
+                                .content { background: #ffffff; padding: 40px; }
+                                .details-box { background-color: #F8F5F0; padding: 25px; border-radius: 6px; margin: 25px 0; border-left: 4px solid #D4AF37; }
+                                .footer { background-color: #1a1a1a; text-align: center; padding: 25px; color: #999; font-size: 12px; }
+                                .highlight { color: #d4af37; font-weight: bold; font-family: cursive; font-size: 18px; }
                             </style>
                         </head>
                         <body>
                             <div class="container">
                                 <div class="header">
-                                    <h1>Thank You for Staying With Us</h1>
+                                    <h1>Thank You</h1>
+                                    <p style="margin: 5px 0; font-size: 12px; opacity: 0.8; letter-spacing: 1px;">It was a pleasure hosting you.</p>
                                 </div>
                                 <div class="content">
-                                    <h2>Check-Out Confirmation</h2>
-                                    <p>Dear ${userName},</p>
-                                    <p>Thank you for choosing Lumière Luxury Hotels. We hope you had a wonderful stay!</p>
+                                    <h2 style="color: #1a1a1a; border-bottom: 1px solid #eee; padding-bottom: 10px;">Check-Out Confirmation</h2>
+                                    <p>Dear <strong>${userName}</strong>,</p>
+                                    <p>Thank you for choosing <strong>Lumière Luxury Hotels</strong> for your recent stay. We hope your time with us was as exceptional as we intended.</p>
                                     
-                                    <h3>Your Stay Summary:</h3>
-                                    <p><strong>Room:</strong> ${booking.roomName}</p>
-                                    <p><strong>Check-In:</strong> ${new Date(booking.checkIn).toLocaleDateString()}</p>
-                                    <p><strong>Check-Out:</strong> ${new Date(booking.checkOut).toLocaleDateString()}</p>
-                                    <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+                                    <div class="details-box">
+                                        <h3 style="margin-top: 0; font-size: 16px; color: #1a1a1a;">Stay Summary:</h3>
+                                        <p style="margin: 5px 0;"><strong>Room:</strong> ${booking.roomName}</p>
+                                        <p style="margin: 5px 0;"><strong>Booking ID:</strong> ${booking.bookingId}</p>
+                                        <p style="margin: 5px 0;"><strong>Stay Dates:</strong> ${new Date(booking.checkIn).toLocaleDateString()} - ${new Date(booking.checkOut).toLocaleDateString()}</p>
+                                        <p style="margin: 5px 0;"><strong>Check-Out Time:</strong> ${formatExactTime(new Date())}</p>
+                                    </div>
                                     
-                                    <p>We would love to hear about your experience. Your feedback helps us continue to provide exceptional service.</p>
+                                    <p>We would be deeply honored to welcome you back in the near future. Your feedback is always valued as we strive for perfection.</p>
                                     
-                                    <p>We look forward to welcoming you back soon!</p>
-                                    
+                                    <p style="margin-top: 30px;">Until we meet again,</p>
                                     <p class="highlight">Safe travels,<br>The Lumière Team</p>
                                 </div>
                                 <div class="footer">
-                                    <p>Lumière Luxury Hotels | Experience Refined Elegance</p>
+                                    <p>&copy; ${new Date().getFullYear()} Lumière Luxury Hotels | Experience Refined Elegance</p>
                                 </div>
                             </div>
                         </body>

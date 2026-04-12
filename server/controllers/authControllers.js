@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import userModel from '../models/userModel.js';
 import transporter from '../config/nodemailer.js';
+import { formatExactTime } from '../utils/formatDate.js';
 
 const buildUserData = (user) => ({
     _id: user._id,
@@ -12,12 +13,10 @@ const buildUserData = (user) => ({
 });
 
 const setAuthCookie = (res, token) => {
-    // If FRONTEND_URL is set, we are in a deployed cross-origin environment.
-    const isDeployed = process.env.NODE_ENV === 'production' || !!process.env.FRONTEND_URL;
     res.cookie('token', token, {
         httpOnly: true,
-        secure: isDeployed, // Must be true for SameSite=none
-        sameSite: isDeployed ? 'none' : 'strict',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 };
@@ -42,10 +41,27 @@ export const register = async (req, res) => {
         setAuthCookie(res, token);
 
         const mailOptions = {
-            from: process.env.SENDER_EMAIL,
+            from: `${process.env.SENDER_NAME} <${process.env.SENDER_EMAIL}>`,
             to: email,
-            subject: 'Welcome to Lumiere Luxury Hotels',
-            text: `${user.name}, your Lumiere Luxury Hotels account has been created for ${email}.`,
+            subject: 'Welcome to Lumière Luxury Hotels',
+            html: `
+                <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <div style="background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%); padding: 40px 20px; text-align: center;">
+                        <h1 style="color: #D4AF37; margin: 0; font-size: 28px; letter-spacing: 2px; text-transform: uppercase;">Lumière</h1>
+                        <p style="color: #FFFFFF; margin: 10px 0 0; font-size: 14px; opacity: 0.8; letter-spacing: 1px;">Luxury Hotels</p>
+                    </div>
+                    <div style="padding: 40px 30px; color: #333333; line-height: 1.7; text-align: center;">
+                        <h2 style="color: #1A1A1A; margin-top: 0; font-size: 22px;">Welcome, ${user.name}</h2>
+                        <p>We are honored to have you join our exclusive community. Your account at <strong>Lumière Luxury Hotels</strong> has been successfully created.</p>
+                        <p>Explore a world of refined elegance, bespoke services, and unforgettable stays.</p>
+                        <div style="margin-top: 30px; padding: 20px; border-top: 1px solid #EEE;">
+                            <p style="font-size: 14px; color: #666; margin: 0;">Account Email: <strong>${email}</strong></p>
+                            <p style="font-size: 12px; color: #999; margin: 5px 0 0;">Registered on: ${formatExactTime(user.createdAt || new Date())}</p>
+                        </div>
+                        <p style="margin-top: 40px; font-weight: bold; font-family: cursive; font-size: 18px; color: #D4AF37;">The Lumière Team</p>
+                    </div>
+                </div>
+            `,
         };
 
         try {
@@ -98,11 +114,10 @@ export const login = async (req, res) => {
 // Logout controller
 export const logout = async (req, res) => {
     try {
-        const isDeployed = process.env.NODE_ENV === 'production' || !!process.env.FRONTEND_URL;
         res.clearCookie('token', {
             httpOnly: true,
-            secure: isDeployed,
-            sameSite: isDeployed ? 'none' : 'strict',
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
         });
         return res.json({ success: true, message: 'Logout successful' });
     } catch (error) {
@@ -129,10 +144,25 @@ export const sendVerifyOtp = async (req, res) => {
         await user.save();
 
         const mailOptions = {
-            from: process.env.SENDER_EMAIL,
+            from: `${process.env.SENDER_NAME} <${process.env.SENDER_EMAIL}>`,
             to: user.email,
-            subject: 'Verify your Lumiere account',
-            text: `Your verification code is ${otp}. It expires in 10 minutes.`,
+            subject: 'Verify your Lumière Account',
+            html: `
+                <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #1A1A1A; padding: 30px; text-align: center;">
+                        <h1 style="color: #D4AF37; margin: 0; font-size: 24px; text-transform: uppercase;">Lumière</h1>
+                    </div>
+                    <div style="padding: 40px 30px; color: #333333; line-height: 1.7; text-align: center;">
+                        <h2 style="color: #1A1A1A; margin-top: 0; font-size: 20px;">Email Verification</h2>
+                        <p>Please use the following security code to verify your account. This code will expire in <span style="font-weight: bold; color: #F44336;">10 minutes</span>.</p>
+                        <div style="margin: 35px 0; background-color: #F8F5F0; padding: 25px; border-radius: 6px; border: 1px dashed #D4AF37;">
+                            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1A1A1A;">${otp}</span>
+                        </div>
+                        <p style="font-size: 11px; color: #999; margin-top: 10px;">Requested at: ${formatExactTime(new Date())}</p>
+                        <p style="font-size: 13px; color: #888;">If you did not request this verification, please ignore this email or contact support.</p>
+                    </div>
+                </div>
+            `,
         };
 
         await transporter.sendMail(mailOptions);
@@ -217,10 +247,25 @@ export const sendResetOtp = async (req, res) => {
         await user.save();
 
         const mailOptions = {
-            from: process.env.SENDER_EMAIL,
+            from: `${process.env.SENDER_NAME} <${process.env.SENDER_EMAIL}>`,
             to: user.email,
-            subject: 'Reset your Lumiere password',
-            text: `Your password reset code is ${otp}. It expires in 10 minutes.`,
+            subject: 'Reset your Lumière Password',
+            html: `
+                <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #1A1A1A; padding: 30px; text-align: center;">
+                        <h1 style="color: #D4AF37; margin: 0; font-size: 24px; text-transform: uppercase;">Lumière</h1>
+                    </div>
+                    <div style="padding: 40px 30px; color: #333333; line-height: 1.7; text-align: center;">
+                        <h2 style="color: #1A1A1A; margin-top: 0; font-size: 20px;">Password Reset Request</h2>
+                        <p>We received a request to reset your password. Use the code below to proceed. This code is valid for <span style="font-weight: bold; color: #F44336;">10 minutes</span>.</p>
+                        <div style="margin: 35px 0; background-color: #F8F5F0; padding: 25px; border-radius: 6px; border: 1px dashed #D4AF37;">
+                            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1A1A1A;">${otp}</span>
+                        </div>
+                        <p style="font-size: 11px; color: #999; margin-top: 10px;">Requested at: ${formatExactTime(new Date())}</p>
+                        <p style="font-size: 13px; color: #888;">If you didn't request a password reset, you can safely ignore this email.</p>
+                    </div>
+                </div>
+            `,
         };
 
         await transporter.sendMail(mailOptions);

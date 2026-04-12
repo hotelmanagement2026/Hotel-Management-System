@@ -1,11 +1,17 @@
 import userModel from "../models/userModel.js";
 import Transaction from "../models/Transaction.js";
 import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const LOG_FILE = 'c:\\Users\\soumi\\OneDrive\\Desktop\\lumière-luxury-hotels\\server\\server_debug.log';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const LOG_DIR = path.join(__dirname, '..', 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'server_debug.log');
 
 const log = (msg) => {
     try {
+        fs.mkdirSync(LOG_DIR, { recursive: true });
         fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] [USER_CONTROLLER] ${msg}\n`);
     } catch (e) {
         console.error('Failed to write to log file:', e);
@@ -61,4 +67,3 @@ export const getUserBookings = async (req, res) => {
         });
     }
 }
-

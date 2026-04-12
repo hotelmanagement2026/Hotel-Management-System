@@ -1,27 +1,6 @@
 import axios from 'axios';
 
-const DEFAULT_API_ORIGIN = import.meta.env.DEV
-    ? 'http://localhost:4000'
-    : 'https://hotel-management-system-wqcn.onrender.com';
-
-const normalizeApiBaseURL = (value) => {
-    // If someone set VITE_API_URL to relative paths, let's detect it and use default absolute URL instead
-    // so we can bypass Vercel proxy limits on cold starts.
-    if (!value || value === '/' || value === '/api') {
-        value = DEFAULT_API_ORIGIN;
-    }
-
-    const trimmedValue = (value || '').trim().replace(/\/+$/, '');
-    if (!trimmedValue) {
-        return '';
-    }
-
-    return trimmedValue.endsWith('/api') ? trimmedValue : `${trimmedValue}/api`;
-};
-
-export const apiBaseURL = normalizeApiBaseURL(
-    import.meta.env.VITE_API_URL || DEFAULT_API_ORIGIN
-);
+const apiBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -30,7 +9,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 120000, // Increased to 120s to accommodate Render free tier cold starts
+    timeout: 10000,
 });
 
 // Response interceptor for error handling
@@ -38,19 +17,12 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response) {
-            // Handle Vercel 504 Gateway Timeout if proxy is somehow still used by an older build
-            if (error.response.status === 504) {
-                return Promise.reject({ 
-                    message: `Backend is waking up (this can take ~50 seconds). Please try again.`, 
-                    status: 504 
-                });
-            }
             const message = error.response.data?.message || 'An error occurred';
             return Promise.reject({ message, status: error.response.status });
         }
         if (error.request) {
             return Promise.reject({
-                message: `Unable to connect to the server. If this is the first request in a while, the server may be waking up (this can take ~1 minute). Please try again shortly.`,
+                message: 'Backend unavailable. Please start the server at http://localhost:4000.',
                 isNetworkError: true,
             });
         }
@@ -116,12 +88,14 @@ export const userAPI = {
 
 // Payment API calls
 export const paymentAPI = {
-    createOrder: async ({ amount, bookingId, roomId, roomName }) => {
+    createOrder: async ({ amount, bookingId, roomId, roomName, checkIn, checkOut }) => {
         const response = await api.post('/payment/create-order', {
             amount,
             bookingId,
             roomId,
             roomName,
+            checkIn,
+            checkOut,
         });
         return response.data;
     },

@@ -127,8 +127,14 @@ const Booking = () => {
         }
 
         const razorpayKey = (import.meta.env.VITE_RAZORPAY_KEY_ID || '').trim();
-        const isPlaceholderKey = razorpayKey === 'your_razorpay_key_id';
-        const isLikelyValidKey = /^rzp_(test|live)_/i.test(razorpayKey);
+        const normalizedKey = razorpayKey.toLowerCase();
+        const isPlaceholderKey =
+            !razorpayKey ||
+            normalizedKey === 'your_razorpay_key_id' ||
+            normalizedKey.includes('placeholder') ||
+            normalizedKey.includes('dummy') ||
+            normalizedKey.includes('example');
+        const isLikelyValidKey = /^rzp_(test|live)_[a-z0-9]+$/i.test(razorpayKey);
 
         // Skip razorpay check if amount is 0 (100% discount) - handling logic might differ but for now assume minimal payment
         if (finalAmount > 0 && (!razorpayKey || isPlaceholderKey || !isLikelyValidKey)) {
@@ -178,6 +184,8 @@ const Booking = () => {
                 bookingId,
                 roomId: currentBookingDraft?.roomId,
                 roomName: currentBookingDraft?.roomName,
+                checkIn,
+                checkOut,
             });
 
             if (!order?.id) {

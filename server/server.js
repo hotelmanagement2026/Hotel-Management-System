@@ -21,41 +21,31 @@ import { getAllPayments, getPaymentSummary, exportPaymentsCSV } from './controll
 import userAuth from './middleware/userAuth.js';
 import adminAuth from './middleware/adminAuth.js';
 import initScheduler from './utils/scheduler.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const defaultAllowedOrigins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"];
-const configuredOrigins = [process.env.FRONTEND_URL, process.env.CORS_ORIGINS]
-    .filter(Boolean)
-    .flatMap((value) => value.split(','))
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigins])];
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const LOG_DIR = path.join(__dirname, 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'server_debug.log');
 
 // Log env vars for debugging
 console.log('Starting server...');
 console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Defined (Starts with ' + process.env.MONGODB_URI.substring(0, 10) + ')' : 'UNDEFINED');
-console.log('Allowed CORS origins:', allowedOrigins);
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
-            return callback(null, true);
-        }
-
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
+    origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"],
     credentials: true
 }));
 
-import fs from 'fs';
-import path from 'path';
-const LOG_FILE = path.join(process.cwd(), 'server_debug.log');
-
 // Log startup details
 try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
     fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Server starting PID: ${process.pid}\n`);
 } catch (e) {
     console.error('Startup logging failed:', e);

@@ -6,26 +6,36 @@ import transporter from '../config/nodemailer.js';
 const sendCheckInReminder = async (booking, user) => {
     try {
         const mailOptions = {
-            from: process.env.SENDER_EMAIL,
+            from: `${process.env.SENDER_NAME} <${process.env.SENDER_EMAIL}>`,
             to: user.email,
-            subject: 'Upcoming Check-in Reminder - Lumiere Luxury Hotels',
+            subject: 'Your Upcoming Stay at Lumière Luxury Hotels',
             html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-                    <h2 style="color: #D4AF37; text-align: center;">Upcoming Stay Reminder</h2>
-                    <p>Dear ${user.name},</p>
-                    <p>This is a friendly reminder that you have an upcoming stay at Lumiere Luxury Hotels starting tomorrow.</p>
-                    
-                    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                        <h3 style="margin-top: 0; color: #333;">Reservation Details</h3>
-                        <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
-                        <p><strong>Room:</strong> ${booking.roomName}</p>
-                        <p><strong>Check-in:</strong> ${new Date(booking.checkIn).toLocaleDateString()}</p>
+                <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <div style="background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%); padding: 40px 20px; text-align: center;">
+                        <h1 style="color: #D4AF37; margin: 0; font-size: 28px; letter-spacing: 2px; text-transform: uppercase;">Lumière</h1>
                     </div>
+                    <div style="padding: 40px 30px; color: #333333; line-height: 1.7;">
+                        <h2 style="color: #1A1A1A; margin-top: 0; font-size: 22px; text-align: center;">Your Sanctuary Awaits</h2>
+                        <p>Dear <strong>${user.name}</strong>,</p>
+                        <p>We are delighted to count down the hours until your arrival. This is a friendly reminder that your stay at <strong>Lumière Luxury Hotels</strong> begins tomorrow.</p>
+                        
+                        <div style="background-color: #F8F5F0; padding: 25px; border-radius: 6px; margin: 30px 0; border-left: 4px solid #D4AF37;">
+                            <h3 style="margin-top: 0; color: #1A1A1A; font-size: 18px; border-bottom: 1px solid #E0E0E0; padding-bottom: 10px;">Check-in Details</h3>
+                            <table style="width: 100%; font-size: 15px;">
+                                <tr><td style="padding: 8px 0; color: #666;">Booking ID:</td><td style="padding: 8px 0; font-weight: bold; text-align: right;">${booking.bookingId}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #666;">Room Type:</td><td style="padding: 8px 0; font-weight: bold; text-align: right;">${booking.roomName}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #666;">Arrival Date:</td><td style="padding: 8px 0; font-weight: bold; text-align: right;">${new Date(booking.checkIn).toLocaleDateString(undefined, { dateStyle: 'long' })}</td></tr>
+                            </table>
+                        </div>
 
-                    <p>We are excited to welcome you!</p>
-                    <p style="font-size: 12px; color: #888; text-align: center; margin-top: 30px;">
-                        &copy; ${new Date().getFullYear()} Lumiere Luxury Hotels. All rights reserved.
-                    </p>
+                        <p style="text-align: center;">If you have any special requirements for your arrival, please let us know.</p>
+                        <div style="text-align: center; margin-top: 40px;">
+                            <p style="font-weight: bold; font-family: cursive; font-size: 18px; color: #D4AF37; line-height: 1;">The Lumière Team</p>
+                        </div>
+                    </div>
+                    <div style="background-color: #1A1A1A; padding: 25px; color: #999999; font-size: 12px; text-align: center;">
+                        <p style="margin: 0;">&copy; ${new Date().getFullYear()} Lumière Luxury Hotels. All rights reserved.</p>
+                    </div>
                 </div>
             `,
         };
