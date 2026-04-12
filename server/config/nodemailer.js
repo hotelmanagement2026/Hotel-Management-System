@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-    port: parseInt(process.env.SMTP_PORT) || 587,
+    port: 2525, // Port 587 is blocked by Render Free Tier. 2525 bypasses the block.
     secure: false,
     auth: {
         user: process.env.SMTP_USER,
