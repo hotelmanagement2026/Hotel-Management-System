@@ -19,9 +19,12 @@ export const AuthProvider = ({ children }) => {
 
     // Check if user is authenticated on mount
     useEffect(() => {
-        if (hasCheckedAuthRef.current) return;
-        hasCheckedAuthRef.current = true;
-        checkAuth();
+        const initializeAuth = async () => {
+            if (hasCheckedAuthRef.current) return;
+            hasCheckedAuthRef.current = true;
+            await checkAuth();
+        };
+        initializeAuth();
     }, []);
 
     const fetchUserData = async () => {
@@ -32,9 +35,8 @@ export const AuthProvider = ({ children }) => {
                 return response.userData;
             }
         } catch (err) {
-            // ignore and fall through to clear user
+            // ignore
         }
-        setUser(null);
         return null;
     };
 
@@ -42,12 +44,11 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         try {
             const response = await authAPI.isAuthenticated();
-            if (response.success) {
-                if (response.userData) {
-                    setUser(response.userData);
-                } else {
-                    await fetchUserData();
-                }
+            if (response.success && response.userData) {
+                setUser(response.userData);
+            } else if (response.success) {
+                // If success but no userData, try fetching it explicitly
+                await fetchUserData();
             } else {
                 setUser(null);
             }
